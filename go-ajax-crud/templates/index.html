@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Dashboard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+
+<script>
+if(localStorage.getItem("theme")==="dark"){
+document.documentElement.classList.add("dark");
+}
+</script>
+</head>
+
+<body class="bg-gray-100 dark:bg-gray-900">
+
+<!-- NAVBAR -->
+<div class="bg-white dark:bg-gray-800 shadow p-4 flex justify-between">
+
+<h1 class="text-lg font-bold text-gray-800 dark:text-white">
+📚 Dashboard
+</h1>
+
+<div class="space-x-2">
+<button onclick="toggleTheme()" class="bg-gray-200 dark:bg-gray-700 px-3 py-1 rounded">🌙</button>
+<button onclick="logout()" class="bg-red-500 text-white px-3 py-1 rounded">Logout</button>
+</div>
+
+</div>
+
+<div class="max-w-4xl mx-auto p-6">
+
+<!-- FORM -->
+<div class="bg-white dark:bg-gray-800 p-6 rounded shadow mb-6">
+
+<input id="title" class="w-full p-2 border rounded mb-2 dark:bg-gray-700 dark:text-white" placeholder="Title">
+<input id="author" class="w-full p-2 border rounded mb-2 dark:bg-gray-700 dark:text-white" placeholder="Author">
+
+<button id="saveBtn" onclick="save()" class="bg-green-500 text-white px-4 py-2 rounded">
+Add Book
+</button>
+
+</div>
+
+<!-- LIST -->
+<div id="list"></div>
+
+</div>
+
+<script>
+
+let editId=null;
+
+function toggleTheme(){
+const html=document.documentElement;
+html.classList.toggle("dark");
+localStorage.setItem("theme",
+html.classList.contains("dark")?"dark":"light");
+}
+
+function logout(){
+localStorage.removeItem("token");
+window.location="/login";
+}
+
+function toast(msg,type="success"){
+const t=document.createElement("div");
+t.className=`fixed top-5 right-5 px-4 py-2 rounded text-white ${type==="error"?"bg-red-500":"bg-green-500"}`;
+t.innerText=msg;
+document.body.appendChild(t);
+setTimeout(()=>t.remove(),3000);
+}
+
+async function load(){
+
+const res=await fetch("/api/books",{
+headers:{Authorization:"Bearer "+localStorage.getItem("token")}
+});
+
+if(res.status===401) return logout();
+
+const data=await res.json();
+
+list.innerHTML="";
+
+data.forEach(b=>{
+
+const div=document.createElement("div");
+
+div.className="bg-white dark:bg-gray-800 p-4 rounded mb-2 flex justify-between";
+
+div.innerHTML=`
+<div>
+<b class="text-gray-800 dark:text-white">${b.title}</b><br>
+<span class="text-gray-500">${b.author}</span>
+</div>
+
+<div>
+<button onclick="edit('${b.id}','${b.title}','${b.author}')" class="bg-blue-500 text-white px-2 py-1">Edit</button>
+<button onclick="del('${b.id}')" class="bg-red-500 text-white px-2 py-1">Delete</button>
+</div>
+`;
+
+list.appendChild(div);
+
+});
+
+}
+
+function edit(id,title,author){
+document.getElementById("title").value=title;
+document.getElementById("author").value=author;
+editId=id;
+saveBtn.innerText="Update";
+}
+
+async function save(){
+
+const body={
+title:title.value,
+author:author.value
+};
+
+let url="/api/books";
+let method="POST";
+
+if(editId){
+url="/api/books/"+editId;
+method="PUT";
+}
+
+await fetch(url,{
+method,
+headers:{
+"Content-Type":"application/json",
+Authorization:"Bearer "+localStorage.getItem("token")
+},
+body:JSON.stringify(body)
+});
+
+editId=null;
+title.value="";
+author.value="";
+saveBtn.innerText="Add Book";
+
+toast("Saved 🎉");
+load();
+}
+
+async function del(id){
+await fetch("/api/books/"+id,{
+method:"DELETE",
+headers:{Authorization:"Bearer "+localStorage.getItem("token")}
+});
+toast("Deleted 🗑️");
+load();
+}
+
+if(!localStorage.getItem("token")){
+window.location="/login";
+}
+
+load();
+
+</script>
+
+</body>
+</html>
